@@ -99,10 +99,12 @@ const GlpiGantt = (function() {
             gantt.config.date_format = parseDateFormat;
             gantt.config.date_grid = uiDateFormat;
 
+
             gantt.config.order_branch = "marker";
             gantt.config.order_branch_free = true;
             gantt.config.show_progress = true;
             gantt.config.sort = true;
+
 
             if (window.innerWidth < 600) {
                 gantt.config.show_grid = false;
@@ -121,7 +123,7 @@ const GlpiGantt = (function() {
                 { name: "description", height: 70, map_to: "text", type: "textarea", focus: true },
                 { name: "time", type: "duration", single_date: true, map_to: "auto" }
             ];
-
+            
             // disable task specific controls on projects
             gantt.templates.task_class = (start, end, task) =>{
                 const css = [];
@@ -139,6 +141,20 @@ const GlpiGantt = (function() {
                 }
                 return "";
             };
+            // AQUI    
+            gantt.config.font_width_ratio = 6;
+            gantt.templates.rightside_text = function rightSideTextTemplate(start, end, task) {
+                if (getTaskFitValue(task) === "right") {
+                return task.text;
+                }
+                return "";
+            };
+            gantt.templates.task_text = function taskTextTemplate(start, end, task) {
+                if (getTaskFitValue(task) === "center") {
+                return task.text;
+                }
+                return "";
+            };
 
             gantt.templates.progress_text = (start, end, task) => {
                 return "<span style='text-align:left; color: #fff;'>" + Math.round(task.progress * 100) + "% </span>";
@@ -148,7 +164,8 @@ const GlpiGantt = (function() {
             gantt.plugins({
                 tooltip: true,
                 fullscreen: true,
-                undo: true
+               // undo: true,
+                marker: true
             });
 
             gantt.templates.tooltip_text = (start, end, task) => {
@@ -156,13 +173,18 @@ const GlpiGantt = (function() {
                task.type + ":</span></b> " + task.text + "<br/><b>" + __("Start date:", 'gantt') + "</b> " +
                gantt.templates.tooltip_date_format(start) +
                "<br/><b>" + __("End date:", 'gantt') + "</b> " + gantt.templates.tooltip_date_format(end) +
-               "<br/><b>" + __("Progress:", 'gantt') + "</b> " + parseInt(task.progress * 100) + "%";
+               "<br/><b>" + __("Progress:", 'gantt') + "</b> " + parseInt(task.progress * 100) + "%" +
+               "<br/><b>" + __("Sort Order:", 'gantt') + "</b> " + task.progress;
+
+
                 if (task.content && task.content.length > 0) {
                     text += "<br/><b>" + __("Description:", 'gantt') + "</b><div style=\"padding-left:25px\">" + task.content + "</div>";
                 }
                 if (task.comment && task.comment.length > 0) {
                     text += "<br/><b>" + __("Comment:", 'gantt') + "</b><div style=\"padding-left:25px\">" + task.comment + "</div>";
                 }
+
+            // print task.entries() if exists for debug
                 return text;
             };
 
@@ -170,9 +192,26 @@ const GlpiGantt = (function() {
             gantt.config.columns = [
                 { name: "text", label: __("Project / Task", 'gantt'), width: 290, tree: true, align: "left" },
                 { name: "start_date", label: __("Start date", 'gantt'), align: "left", width: 90 },
-                { name: "duration", label: __("Duration", 'gantt'), align: "center", width: 47 },
+                { name: "progress_form", label: __("Progress", 'gantt'), align: "center", width: 47, template: function (task) {
+                    return parseInt(task.progress * 100) + "%"
+                }
+            },
                 { name: "add", align: "center" }
             ];
+
+// Add custom colors for weekends
+// Adiciona cores especiais para os finais de semana
+// necessário adicionar cores no css também
+gantt.templates.scale_cell_class = function (date) {
+    if (date.getDay() == 0 || date.getDay() == 6) {
+        return "weekend";
+    }
+};
+gantt.templates.timeline_cell_class = function (item, date) {
+    if (date.getDay() == 0 || date.getDay() == 6) {
+        return "weekend"
+    }
+};
 
             // specify fullscreen root element
             gantt.ext.fullscreen.getFullscreenElement = () => {
@@ -250,12 +289,31 @@ const GlpiGantt = (function() {
                 ]
             };
 
+          // Add marker for Today
+          // Adiciona marcador para hoje
+          var today = new Date();
+          var dateToStr = gantt.date.date_to_str(gantt.config.task_date);
+          var todayMarkerId = gantt.addMarker({
+              start_date: today,
+              css: "today",
+              text: "Hoje",
+              title: "Data de hoje: " + dateToStr(today)
+          });
+
+          /**
+           * Centers the today marker on the gantt chart.
+           *
+           * @param {type} gantt - the gantt chart object
+           * @return {type} undefined
+           */
+          function centerTodayMarker() {
+              gantt.showDate(today);
+          }
+         // Changed the starting zoom level to week
+         // Alterada a inicialização do zoom para semana
             gantt.ext.zoom.init(zoomConfig);
-            gantt.ext.zoom.setLevel("month");
-
-            // <<<<< Configs
-
-
+            gantt.ext.zoom.setLevel("week");
+    
             // >>>>> Event handlers
 
             gantt.ext.zoom.attachEvent("onAfterZoom", (level, config) => {
@@ -450,6 +508,7 @@ const GlpiGantt = (function() {
             // <<<<< link double click
             }
 
+
             // adjust elements visibility on Fullscreen expand/collapse
             gantt.attachEvent("onBeforeExpand", () => {
                 $('.gantt-block__features').css({
@@ -498,10 +557,12 @@ const GlpiGantt = (function() {
 
             $('.gantt_radio[name=rb-optype]').on('change', () => {
                 gantt.render();
+                centerTodayMarker();
             });
 
             gantt.attachEvent("onGanttRender", () => {
                 $("#search").val(filterValue);
+
             });
 
             gantt.$doFilter = (value) => {
@@ -514,6 +575,10 @@ const GlpiGantt = (function() {
             };
 
             // <<<<< Event handlers
+            gantt.attachEvent("onDataRender", function() {
+               centerTodayMarker();
+            });
+
 
 
             gantt.config.readonly = readonly;
@@ -528,7 +593,6 @@ const GlpiGantt = (function() {
                     if (json.data) {
                         gantt.parse(json);
                         gantt.render();
-
                         if (readonly) {
                             gantt.message.position = 'bottom';
                             gantt.message({
@@ -539,10 +603,12 @@ const GlpiGantt = (function() {
                         }
                         expandCollapse(1);
                         calculateProgress();
-                        gantt.sort('text', false);
+                       // gantt.sort('text', false);
+
                     } else {
                         gantt.alert(json.error);
                     }
+
                 },
                 error: (resp) => {
                     gantt.alert(resp.responseText);
@@ -985,6 +1051,28 @@ const GlpiGantt = (function() {
         });
         gantt.render();
     }
+//AQUI
+    function getTaskFitValue(task) {
+        var taskStartPos = gantt.posFromDate(task.start_date),
+            taskEndPos = gantt.posFromDate(task.end_date);
+      
+        var width = taskEndPos - taskStartPos;
+        var textWidth = (task.text || "").length * gantt.config.font_width_ratio;
+      
+        if (width < textWidth) {
+            var ganttLastDate = gantt.getState().max_date;
+            var ganttEndPos = gantt.posFromDate(ganttLastDate);
+            if (ganttEndPos - taskEndPos < textWidth) {
+              return "right"
+            }
+            else {
+              return "right"
+            }
+          }
+          else {
+            return "center";
+          }
+      }      
 
     // <<<<< Functions
 })();
