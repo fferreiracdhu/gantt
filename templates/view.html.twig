@@ -55,7 +55,7 @@
                <i class="fas fa-search-plus"></i>
                <span>{{ __('Zoom', 'gantt') }}</span>
             </span>
-
+            <input value={{ __('Today', 'glpi') }} type="button" onclick='gantt.showDate(new Date())' style='margin:0 15px;'>
             <input type="radio" id="scale1" class="btn-check gantt_radio" name="scale" value="day" checked />
             <label class="btn btn-outline-secondary" for="scale1">{{ __('Days', 'gantt') }}</label>
 
