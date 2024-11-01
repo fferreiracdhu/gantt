@@ -175,3 +175,9 @@
 .gantt_selected .weekend {
     background: #f7eb91;
 }
+
+.today {
+    position: sticky;
+    left: 0; /* fixa o marcador no lado esquerdo */
+    z-index: 10; /* garante que ele ficará acima de outros elementos */
+}
